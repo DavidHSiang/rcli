@@ -1,6 +1,6 @@
-use std::fs;
 use csv::Reader;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::fs;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -12,9 +12,7 @@ struct Player {
     nationality: String,
     #[serde(rename = "Kit Number")]
     kit: u8,
-
 }
-
 
 pub fn process_csv(input: &str, output: &str) -> anyhow::Result<()> {
     let mut reader = Reader::from_path(input)?;

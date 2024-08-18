@@ -12,8 +12,7 @@ pub struct Opts {
 pub enum SubCommand {
     #[command(name = "csv", about = "Show CSV, or Convert CSV to other formats")]
     Csv(CsvOpts),
-} 
-
+}
 
 #[derive(Debug, Parser)]
 pub struct CsvOpts {
@@ -29,7 +28,6 @@ pub struct CsvOpts {
     #[arg(long, default_value_t = true)]
     pub header: bool,
 }
-
 
 fn verify_input_file(filename: &str) -> Result<String, &'static str> {
     if Path::new(filename).exists() {

@@ -3,7 +3,14 @@ use std::{path::PathBuf, str::FromStr};
 
 use clap::Parser;
 
+use crate::CmdExector;
+
 use super::{verify_file, verify_path};
+use crate::{
+    get_content, get_reader, process_text_key_generate, process_text_sign, process_text_verify,
+};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use std::fs;
 
 #[derive(Debug, Parser)]
 pub enum TextSubCommand {
@@ -15,6 +22,16 @@ pub enum TextSubCommand {
     Generate(KeyGenerateOpts),
 }
 
+impl CmdExector for TextSubCommand {
+    async fn execute(self) -> anyhow::Result<()> {
+        match self {
+            TextSubCommand::Sign(opts) => opts.execute().await,
+            TextSubCommand::Verify(opts) => opts.execute().await,
+            TextSubCommand::Generate(opts) => opts.execute().await,
+        }
+    }
+}
+
 #[derive(Debug, Parser)]
 pub struct TextSignOpts {
     #[arg(short, long, value_parser = verify_file, default_value = "-")]
@@ -23,6 +40,17 @@ pub struct TextSignOpts {
     pub key: String,
     #[arg(long, default_value = "blake3", value_parser = parse_format)]
     pub format: TextSignFormat,
+}
+
+impl CmdExector for TextSignOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let mut reader = get_reader(&self.input)?;
+        let key = get_content(&self.key)?;
+        let signed = process_text_sign(&mut reader, &key, self.format)?;
+        let signed = URL_SAFE_NO_PAD.encode(signed);
+        print!("{}", signed);
+        Ok(())
+    }
 }
 
 #[derive(Debug, Parser)]
@@ -37,12 +65,37 @@ pub struct TextVerifyOpts {
     pub format: TextSignFormat,
 }
 
+impl CmdExector for TextVerifyOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let mut reader = get_reader(&self.input)?;
+        let key = get_content(&self.key)?;
+        let decoded = URL_SAFE_NO_PAD.decode(&self.sig)?;
+        let verified = process_text_verify(&mut reader, &key, &decoded, self.format)?;
+        if verified {
+            println!("✓ Signature verified");
+        } else {
+            println!("⚠ Signature not verified");
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Parser)]
 pub struct KeyGenerateOpts {
     #[arg(long, default_value = "blake3", value_parser = parse_format)]
     pub format: TextSignFormat,
     #[arg(short, long, value_parser = verify_path)]
     pub output_path: PathBuf,
+}
+
+impl CmdExector for KeyGenerateOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let key = process_text_key_generate(self.format)?;
+        for (k, v) in key {
+            fs::write(self.output_path.join(k), v)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

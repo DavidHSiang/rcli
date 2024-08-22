@@ -7,6 +7,7 @@ use axum::{
 };
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::net::TcpListener;
+use tower_http::services::ServeDir;
 use tracing::info;
 
 #[derive(Debug)]
@@ -21,6 +22,7 @@ pub async fn process_http_serve(path: PathBuf, port: u16) -> Result<()> {
 
     let state = HttpServeState { path };
     let router = Router::new()
+        .nest_service("/tower", ServeDir::new(&state.path))
         .route("/*path", get(file_handler))
         .with_state(Arc::new(state));
 
@@ -49,5 +51,21 @@ async fn file_handler(
             StatusCode::NOT_FOUND,
             format!("File {:?} does not exist", path),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_file_handler() {
+        let state = Arc::new(HttpServeState {
+            path: PathBuf::from("src/process"),
+        });
+        let path = Path("http_serve.rs".to_string());
+        let (status, content) = file_handler(State(state), path).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(content.contains("async fn file_handler("));
     }
 }
